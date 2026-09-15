@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: nestro-api
+    runtime: node
+    rootDir: backend
+    buildCommand: npm ci
+    startCommand: npm start
+    # `/ready` fails when Atlas is disconnected; `/health` only proves Node is running.
+    healthCheckPath: /ready
+    autoDeploy: false
+    maxShutdownDelaySeconds: 60
+
+  - type: worker
+    name: nestro-worker
+    runtime: node
+    rootDir: backend
+    buildCommand: npm ci
+    startCommand: npm run worker
+    autoDeploy: false
+    maxShutdownDelaySeconds: 120

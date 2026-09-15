@@ -1,0 +1,110 @@
+﻿.content {
+  min-width: 0;
+  color: #2b1b11;
+  padding: 1.25rem;
+  overflow-wrap: anywhere;
+}
+.content :where(main, section) {
+  min-width: 0;
+}
+.content :where(h1) {
+  color: #2b1b11;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+.content :where(h2, h3) {
+  color: #483326;
+}
+.content :where(label) {
+  color: #5c4535;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+.content
+  :where(
+    input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
+    select,
+    textarea
+  ) {
+  max-width: 100%;
+  min-width: 0;
+  border: 1px solid #d8c8b8;
+  border-radius: 0.65rem;
+  background-color: #fffdfa;
+  color: #2b1b11;
+  font-size: 0.875rem;
+  padding-block: 0.65rem;
+}
+.content :where(select, textarea) {
+  padding-inline: 0.75rem;
+}
+.content :where(input[type="checkbox"], input[type="radio"]) {
+  accent-color: #8b5e3c;
+}
+.content :where(input, select, textarea, button, a):focus-visible {
+  outline: 2px solid #8b5e3c;
+  outline-offset: 3px;
+}
+.content :where(button):disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+.content :where(button:not([class]), button[class=""]) {
+  border: 1px solid #d8c8b8;
+  border-radius: 0.6rem;
+  padding: 0.55rem 0.85rem;
+  background: #f3ede5;
+  color: #70482e;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.content :where(button:not([class])):hover:not(:disabled) {
+  background: #e8ded0;
+}
+.content :where(table) {
+  display: block;
+  max-width: 100%;
+  width: 100%;
+  overflow-x: auto;
+  border-spacing: 0;
+  background: #fffdfa;
+  border-radius: 0.75rem;
+}
+.content :where(thead) {
+  background: #f3ede5;
+}
+.content :where(th) {
+  color: #786454;
+  white-space: nowrap;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+}
+.content :where(td, th) {
+  padding: 0.9rem 1.1rem;
+  border-bottom: 1px solid #eee5da;
+}
+.content :where(tbody tr):hover {
+  background: #faf8f4;
+}
+.content :where(td) {
+  font-size: 0.875rem;
+}
+.content :where([role="status"]:not(:empty)) {
+  border-radius: 0.75rem;
+  padding: 0.85rem 1rem;
+  background: #f3ede5;
+  color: #5c4535;
+  font-size: 0.875rem;
+}
+.content :where([role="alert"]) {
+  border: 1px solid #ebc9bc;
+  border-radius: 0.75rem;
+  padding: 0.85rem 1rem;
+  background: #fff3ee;
+  color: #923f2b;
+}
+@media (min-width: 640px) {
+  .content {
+    padding: 1.75rem 2rem;
+  }
+}
