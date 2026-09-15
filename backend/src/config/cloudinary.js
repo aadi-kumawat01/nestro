@@ -7,15 +7,18 @@ const apiKey = process.env.CLOUDINARY_API_KEY?.trim();
 
 const apiSecret = process.env.CLOUDINARY_SECRET_KEY?.trim();
 
-if (!cloudName || !apiKey || !apiSecret) {
+const isConfigured = Boolean(cloudName && apiKey && apiSecret);
+
+if (!isConfigured && process.env.NODE_ENV !== "test") {
   throw new Error("Cloudinary environment variables are missing");
 }
 
-cloudinary.config({
-  cloud_name: cloudName,
-  api_key: apiKey,
-  api_secret: apiSecret,
-  secure: true,
-});
+if (isConfigured)
+  cloudinary.config({
+    cloud_name: cloudName,
+    api_key: apiKey,
+    api_secret: apiSecret,
+    secure: true,
+  });
 
 export default cloudinary;
