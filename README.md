@@ -19,7 +19,7 @@ Nestro is a furniture storefront and commerce dashboard built with Next.js, Expr
 
 Use Node.js 22 LTS or later supported by the installed dependencies, npm, and **MongoDB Atlas or a MongoDB replica set**. Checkout and several account operations use MongoDB transactions. A standalone MongoDB server is not sufficient.
 
-External accounts: Razorpay for online payment, SMTP/Gmail app password for transactional mail, and Cloudinary for catalog uploads. Courier tracking is entered by an administrator; no courier API account is assumed.
+External accounts: Razorpay for online payment, Brevo for transactional mail, and Cloudinary for catalog uploads. Courier tracking is entered by an administrator; no courier API account is assumed.
 
 ## Local setup
 
@@ -27,7 +27,7 @@ External accounts: Razorpay for online payment, SMTP/Gmail app password for tran
 2. In each of `backend` and `frontend`, run `npm ci`.
 3. Copy `backend/.env.example` to `backend/.env`, and `frontend/.env.example` to `frontend/.env.local`. Enter your own configuration. Real environment credentials are excluded from this delivery.
 4. Keep the **original CRYPTR_SECRET_KEY** if existing customers have encrypted passwords. Set a separate random JWT_SECRET (32+ characters) and OTP_SECRET. Successful legacy logins migrate passwords to scrypt. Customers whose old key is unavailable must reset their passwords through email.
-5. Set MONGO_URI, SMTP and Cloudinary values. Keep FRONTEND_URL as your actual frontend origin. Browser API calls use Next's same-origin `/api` rewrite; API_BASE_URL points to the Express API and includes `/api`.
+5. Set MONGO_URI, Brevo and Cloudinary values. Keep FRONTEND_URL as your actual frontend origin. Browser API calls use Next's same-origin `/api` rewrite; API_BASE_URL points to the Express API and includes `/api`.
 6. With API instances stopped, run `npm run migrate` in backend for a read-only report. After inspecting it and confirming your database backup, run `npm run migrate -- --apply`.
 7. Start backend using `npm run dev`, and frontend in a second terminal using `npm run dev`.
 8. Register and verify your account. Promote it locally: `node scripts/admin.js you@example.com superAdmin` from backend. Sign in again.
@@ -58,7 +58,7 @@ If the customer changes the cart after starting payment, successful payment does
 
 ## Email and support
 
-SMTP must be configured for registration, reset and newsletter confirmation. No real email was sent during development. The outbox retries order/support messages up to eight times. Admin dashboard shows exhausted jobs; inspect configuration and resolve delivery issues before launch.
+Set `BREVO_API_KEY`, `BREVO_SENDER_EMAIL` (a verified sender in Brevo), and optionally `BREVO_SENDER_NAME` for registration, reset and newsletter confirmation. Run `npm run mail:verify` in backend to check API authentication; this does not send an email or verify the sender. The outbox retries order/support messages up to eight times. Admin dashboard shows exhausted jobs; inspect configuration and resolve delivery issues before launch.
 
 Support replies are queued by an explicit administrator action in the application. Store marketing preference and newsletter double opt-in are implemented; a bulk marketing campaign sender is not included. Transactional order email remains enabled irrespective of marketing preference.
 

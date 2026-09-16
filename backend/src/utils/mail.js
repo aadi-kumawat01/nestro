@@ -1,29 +1,27 @@
-import nodemailer from "nodemailer";
 import { Outbox } from "../models/commerce.model.js";
 
-function transporter() {
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS)
-    throw new Error("Email delivery is not configured");
-  return nodemailer.createTransport({
-    ...(process.env.SMTP_HOST
-      ? {
-          host: process.env.SMTP_HOST,
-          port: Number(process.env.SMTP_PORT || 587),
-          secure: process.env.SMTP_SECURE === "true",
-        }
-      : { service: "gmail" }),
-    auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
-    connectionTimeout: 10000,
-    socketTimeout: 20000,
-  });
-}
 export async function sendMail(to, subject, message) {
-  return transporter().sendMail({
-    from: process.env.EMAIL_FROM || `Nestro <${process.env.EMAIL_USER}>`,
-    to,
-    subject,
-    text: message,
+  const { BREVO_API_KEY, BREVO_SENDER_EMAIL, BREVO_SENDER_NAME } = process.env;
+  if (!BREVO_API_KEY || !BREVO_SENDER_EMAIL)
+    throw new Error("Email delivery is not configured");
+  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+      "api-key": BREVO_API_KEY,
+      "content-type": "application/json",
+      accept: "application/json",
+    },
+    body: JSON.stringify({
+      sender: { email: BREVO_SENDER_EMAIL, name: BREVO_SENDER_NAME || "Nestro" },
+      to: [{ email: to }],
+      subject,
+      textContent: message,
+    }),
+    signal: AbortSignal.timeout(20000),
   });
+  if (!response.ok)
+    throw new Error(`Brevo email delivery failed (HTTP ${response.status})`);
+  return response.json();
 }
 export async function queueMail(key, to, subject, message, session) {
   await Outbox.updateOne(
@@ -33,7 +31,7 @@ export async function queueMail(key, to, subject, message, session) {
   );
 }
 export async function deliverOutbox() {
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) return;
+  if (!process.env.BREVO_API_KEY || !process.env.BREVO_SENDER_EMAIL) return;
   for (let i = 0; i < 10; i++) {
     const job = await Outbox.findOneAndUpdate(
       {
@@ -60,7 +58,7 @@ export async function deliverOutbox() {
         { _id: job._id },
         {
           $set: {
-            error: "Email delivery failed; check SMTP configuration",
+            error: "Email delivery failed; check Brevo configuration",
             nextAttempt: new Date(
               Date.now() + Math.min(3600000, 60000 * 2 ** job.attempts),
             ),
