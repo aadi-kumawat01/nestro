@@ -12,7 +12,10 @@ export async function sendMail(to, subject, message) {
       accept: "application/json",
     },
     body: JSON.stringify({
-      sender: { email: BREVO_SENDER_EMAIL, name: BREVO_SENDER_NAME || "Nestro" },
+      sender: {
+        email: BREVO_SENDER_EMAIL,
+        name: BREVO_SENDER_NAME || "Nestro",
+      },
       to: [{ email: to }],
       subject,
       textContent: message,

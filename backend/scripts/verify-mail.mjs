@@ -13,4 +13,6 @@ const response = await fetch("https://api.brevo.com/v3/account", {
 
 if (!response.ok)
   throw new Error(`Brevo API authentication failed (HTTP ${response.status})`);
-console.log("Brevo API authentication succeeded. Sender must be verified in Brevo.");
+console.log(
+  "Brevo API authentication succeeded. Sender must be verified in Brevo.",
+);
