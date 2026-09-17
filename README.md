@@ -21,6 +21,34 @@ Use Node.js 22 LTS or later supported by the installed dependencies, npm, and **
 
 External accounts: Razorpay for online payment, Brevo for transactional mail, and Cloudinary for catalog uploads. Courier tracking is entered by an administrator; no courier API account is assumed.
 
+## Current deployment
+
+The storefront is deployed on Vercel at [nestro-one.vercel.app](https://nestro-one.vercel.app), and the Express API is deployed on Render at [nestro-api-5p6m.onrender.com](https://nestro-api-5p6m.onrender.com). MongoDB Atlas holds the application data in the case-sensitive `Nestro` database. On 17 September 2026, the API's `/ready` endpoint and the storefront's `/api/product?limit=1` proxy both returned HTTP 200, with 24 products reported by the latter. These checks show connectivity, not acceptance of the full checkout flow.
+
+The Render web service runs `npm start` from `backend`; Vercel builds the Next.js app from `frontend`. Render's `render.yaml` also defines a separate `nestro-worker`, but that service must be provisioned and kept running independently. The API does not process background jobs itself. If only the web service is deployed, queued order/support email and expired-reservation processing will not run, even though synchronous registration and password-reset email can work.
+
+### Deployment configuration
+
+Keep all real values in the hosting providers' environment settings, not in Git. Do not copy a local `.env` file into the repository.
+
+| Host            | Variable                                                            | Purpose                                                                                             |
+| --------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Render API      | `NODE_ENV=production`                                               | Secure production behavior.                                                                         |
+| Render API      | `MONGO_URI`                                                         | Atlas URI with `/Nestro` before the query string; use a database user scoped to `readWrite@Nestro`. |
+| Render API      | `FRONTEND_URL=https://nestro-one.vercel.app`                        | Allowed storefront origin and links in email. Change this if the production domain changes.         |
+| Render API      | `JWT_SECRET`, `OTP_SECRET`                                          | Separate, strong secrets; `JWT_SECRET` must be at least 32 characters in production.                |
+| Render API      | `CRYPTR_SECRET_KEY`                                                 | Preserve the previous value while legacy encrypted passwords still need migration.                  |
+| Render API      | `CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_SECRET_KEY`         | Required to start the API and upload catalog images.                                                |
+| Render API      | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` | Matching gateway mode plus a separate webhook signing secret.                                       |
+| Render API      | `BREVO_API_KEY`, `BREVO_SENDER_EMAIL`                               | Brevo HTTP API credentials; sender address must be verified. `BREVO_SENDER_NAME` is optional.       |
+| Vercel frontend | `API_BASE_URL=https://nestro-api-5p6m.onrender.com/api`             | Server-side API calls and same-origin browser `/api` rewrite; keep the `/api` suffix.               |
+| Vercel frontend | `NEXT_PUBLIC_RAZORPAY_KEY_ID`                                       | Public key ID matching the backend's Razorpay mode. Never put the key secret here.                  |
+| Vercel frontend | `NEXT_PUBLIC_SITE_URL=https://nestro-one.vercel.app`                | Canonical site URL for metadata and sitemap.                                                        |
+
+If deploying the worker, give it the Atlas and Brevo configuration it needs, and use `npm run worker` from `backend`. Review the worker's instance cost before enabling the `render.yaml` Blueprint. Render's web service uses `/ready` for health checks: `/health` only confirms that Node is responding, while `/ready` confirms an Atlas connection. Even with `/ready` passing, test a real collection endpoint such as `/api/product?limit=1`; a connection can succeed while the selected database or user permissions are wrong. Atlas must allow the Render service's outbound IP ranges.
+
+After changing Vercel environment variables, redeploy the frontend. After changing Render variables, restart or redeploy the API. The Render service has auto-deploy disabled in `render.yaml`; pushing code to GitHub does not by itself guarantee a new Render deployment. Configure the Razorpay webhook at `https://nestro-api-5p6m.onrender.com/api/order/webhook`, starting in test mode, and verify delivery before accepting live payments.
+
 ## Local setup
 
 1. Keep a separate database backup and your original ZIP. Do not point the updated API at an active production database while migrating.
@@ -50,7 +78,7 @@ Set backend RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET and RAZORPAY_WEBHOOK_SECRET. Se
 
 Configure the provider webhook to `https://YOUR-API-HOST/api/order/webhook` (or the frontend proxy URL if it reliably preserves raw bytes). Configure captured/order-paid and refund events and automatic capture according to your provider settings. The handler validates the raw-body signature before processing.
 
-An authorized payment is not treated as paid until capture is confirmed. Do not ship unpaid online orders. If payment initialization times out, look up the existing order before trying again. A background job checks expired 30-minute reservations every minute. During a gateway outage it keeps inventory reserved rather than making an unsupported assumption about payment state.
+An authorized payment is not treated as paid until capture is confirmed. Do not ship unpaid online orders. If payment initialization times out, look up the existing order before trying again. When the separate worker is running, it checks expired 30-minute reservations every minute. During a gateway outage it keeps inventory reserved rather than making an unsupported assumption about payment state.
 
 Payment captured after cancellation or stock release becomes “needs review” and requires a refund; it does not trigger fulfilment. Refunds are for the full order. A timeout leaves refund state “processing”; reconcile before any further provider action. Failed/ambiguous refunds require provider-side investigation. Partial refunds and item-by-item returns are not implemented.
 
@@ -58,7 +86,7 @@ If the customer changes the cart after starting payment, successful payment does
 
 ## Email and support
 
-Set `BREVO_API_KEY`, `BREVO_SENDER_EMAIL` (a verified sender in Brevo), and optionally `BREVO_SENDER_NAME` for registration, reset and newsletter confirmation. Run `npm run mail:verify` in backend to check API authentication; this does not send an email or verify the sender. The outbox retries order/support messages up to eight times. Admin dashboard shows exhausted jobs; inspect configuration and resolve delivery issues before launch.
+Set `BREVO_API_KEY`, `BREVO_SENDER_EMAIL` (a verified sender in Brevo), and optionally `BREVO_SENDER_NAME` for registration, reset and newsletter confirmation. Run `npm run mail:verify` in backend to check API authentication; this does not send an email or verify the sender. With the worker running, the outbox retries order/support messages up to eight times. Admin dashboard shows exhausted jobs; inspect configuration and resolve delivery issues before launch.
 
 Support replies are queued by an explicit administrator action in the application. Store marketing preference and newsletter double opt-in are implemented; a bulk marketing campaign sender is not included. Transactional order email remains enabled irrespective of marketing preference.
 
@@ -78,5 +106,7 @@ Backend: `npm start` with NODE_ENV=production and managed process restart.
 Frontend: `npm run build`, then `npm start`.
 Set NEXT_PUBLIC_SITE_URL to the public HTTPS storefront URL before building.
 Run migrations before starting production API instances; production automatic index creation is disabled.
+
+The GitHub Actions quality gate runs `npm test` in `backend`, then `npm run format:check`, `npm run lint`, `npm run build` and Playwright E2E tests in `frontend`. Run these checks before pushing changes to `main`.
 
 Keep configuration private. If an original ZIP containing credentials was shared publicly, rotate those credentials with the respective provider.
