@@ -1,6 +1,8 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { fetchWithRetry } from "@/utils/retry";
+
 export async function serverApi(path) {
   const jar = await cookies();
   if (!jar.get("token")) redirect("/sign-in");
@@ -9,7 +11,7 @@ export async function serverApi(path) {
     process.env.NEXT_PUBLIC_API_BASE_URL ||
     "http://localhost:5000/api"
   ).replace(/\/$/, "");
-  const response = await fetch(`${api}/${path}`, {
+  const response = await fetchWithRetry(`${api}/${path}`, {
     cache: "no-store",
     headers: { Cookie: jar.toString() },
   });
