@@ -9,7 +9,7 @@ const initialState = {
   final_total: 0,
   revision: 0,
   user: null,
-  ready: false,
+  ready: true,
   busy: false,
   pending: {},
   error: "",
@@ -137,26 +137,52 @@ const slice = createSlice({
 });
 const { snapshot, optimistic, rollback, busy, error, reset } = slice.actions;
 const guestKey = "nestro:guest-cart:v2";
+let guestFallback = null;
 let queue = Promise.resolve();
 let generation = 0;
+
+function createGuest() {
+  return {
+    id:
+      globalThis.crypto?.randomUUID?.() ||
+      `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    items: [],
+  };
+}
+
 function readGuest() {
   try {
     const raw = JSON.parse(localStorage.getItem(guestKey) || "null");
-    return raw && Array.isArray(raw.items)
-      ? raw
-      : { id: crypto.randomUUID(), items: [] };
-  } catch {
-    return { id: crypto.randomUUID(), items: [] };
-  }
+    if (raw && Array.isArray(raw.items)) {
+      guestFallback = {
+        id: raw.id || createGuest().id,
+        items: raw.items,
+      };
+      return guestFallback;
+    }
+  } catch {}
+
+  if (!guestFallback) guestFallback = createGuest();
+  return guestFallback;
 }
+
+function removeGuest() {
+  guestFallback = null;
+  try {
+    localStorage.removeItem(guestKey);
+  } catch {}
+}
+
 function saveGuest(guest) {
-  localStorage.setItem(guestKey, JSON.stringify(guest));
+  guestFallback = guest;
+  try {
+    localStorage.setItem(guestKey, JSON.stringify(guest));
+  } catch {}
 }
+
 export const bootstrapCart = () => async (dispatch) => {
   await queue;
   const current = ++generation;
-  // Make the guest cart interactive immediately. Authentication may be slow
-  // (for example, while a hosted API wakes up) and should not block shopping.
   const initialGuest = readGuest();
   saveGuest(initialGuest);
   dispatch(snapshot({ items: initialGuest.items, user: null }));
@@ -168,14 +194,16 @@ export const bootstrapCart = () => async (dispatch) => {
       if (e.response?.status !== 401) throw e;
     }
     if (current !== generation) return;
-    // Preserve ambiguous legacy data as a backup, never merge another account's cart.
-    const legacy = localStorage.getItem("cart");
+    let legacy = null;
+    try {
+      legacy = localStorage.getItem("cart");
+    } catch {}
     if (legacy) {
-      localStorage.setItem("nestro:legacy-cart-backup", legacy);
-      localStorage.removeItem("cart");
+      try {
+        localStorage.setItem("nestro:legacy-cart-backup", legacy);
+        localStorage.removeItem("cart");
+      } catch {}
     }
-    // Re-read after the auth request so items added while it was pending are
-    // included in either the guest snapshot or the signed-in merge.
     const guest = readGuest();
     if (user) {
       dispatch(busy(true));
@@ -190,7 +218,7 @@ export const bootstrapCart = () => async (dispatch) => {
         });
       else result = await client.get("cart");
       if (current !== generation) return;
-      localStorage.removeItem(guestKey);
+      removeGuest();
       dispatch(snapshot({ ...result.data.cart, user }));
     } else {
       saveGuest(guest);
@@ -309,7 +337,7 @@ export const decreaseQuantity = (id) => mutate(id, "decrease");
 export const removeFromCart = (id) => mutate(id, "remove");
 export const clearSession = () => (dispatch) => {
   generation++;
-  localStorage.removeItem(guestKey);
+  removeGuest();
   dispatch(reset());
 };
 export default slice.reducer;
